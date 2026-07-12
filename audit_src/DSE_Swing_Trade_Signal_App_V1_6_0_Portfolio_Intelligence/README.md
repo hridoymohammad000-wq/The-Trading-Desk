@@ -110,6 +110,58 @@ The master preserves the supplied data exactly. It does **not** invent missing s
 - QA / regression coverage: **55% done**
 - Release cleanup: **60% done**
 
+## Current Project Status
+
+**Current release:** V1.6.0 - Portfolio Intelligence  
+**Next mandatory release:** V1.6.1 - Safety & Integrity
+
+V1.6.0 is operational as a local decision-support and paper-trading application, but it is not yet approved for public production deployment or real-money trade decisions.
+
+## V1.6.1 - Mandatory Safety & Integrity Work
+
+The following issues must be completed before starting major V2 feature development:
+
+- Add a global latest-market-date gate so outdated symbol data cannot appear as an active BUY signal.
+- Hard-block Signal Board and Paper Trading when the active dataset is stale.
+- Replace misleading confidence and signal-accuracy labels with evidence-based rule scores.
+- Add authentication, restricted CORS, and protection for storage, import, delete, and collector routes.
+- Implement real broker PDF parsing or clearly rename the feature as manual statement-text import.
+- Fix paper-trading capital, reset, return, and holding-period calculations.
+- Add regression tests for stale data, outdated signals, security boundaries, portfolio accounting, and full trade lifecycle.
+
+## V2 Main Focus
+
+After V1.6.1 safety gates are completed and verified, V2 development will focus on:
+
+1. Diagnostics and system health visibility
+2. Stronger automated and end-to-end testing
+3. Deployment readiness
+4. Daily automatic EOD refresh with validation
+5. Multi-timeframe signal logic
+6. Position sizing and portfolio risk controls
+7. Stronger portfolio analytics
+8. Watchlists and alerts
+9. Better broker statement import
+
+## V2 Release Gate
+
+V2 feature development must not bypass V1.6.1 safety requirements.
+
+A feature may be marked completed only when:
+
+- implementation is finished;
+- tests are executed and passed;
+- stale and invalid data are safely blocked;
+- UI labels match actual backend behavior;
+- deployment and security risks are documented;
+- no unsupported accuracy or profit claims are shown.
+
+## Product Scope
+
+This application is a DSE decision-support, portfolio-analysis, and paper-trading platform.
+
+It does not provide guaranteed returns, automatic broker execution, or verified investment advice.
+
 ## V2 roadmap
 
 ### What V2 should add
