@@ -1,0 +1,62 @@
+[
+  {
+    "symbol": "AL-HAJTEX",
+    "currentSignal": "AVOID",
+    "grade": "AVOID",
+    "strategy": "Support Bounce",
+    "entry": 103.5,
+    "tp": 116.5,
+    "sl": 97.61,
+    "rr": 2.21,
+    "holdingStatus": "EXIT / REDUCE REVIEW",
+    "actionReason": "Technical state is AVOID and the position is down 20.47%. Review an exit/reduction plan; do not average down.",
+    "concentrationWarning": false,
+    "signalDate": "2026-06-30",
+    "staleSignal": true
+  },
+  {
+    "symbol": "BDFINANCE",
+    "currentSignal": "BUY",
+    "grade": "A",
+    "strategy": "Pullback",
+    "entry": 13.4,
+    "tp": 15.2,
+    "sl": 12.53,
+    "rr": 2.07,
+    "holdingStatus": "REDUCE CONCENTRATION",
+    "actionReason": "64.32% of the portfolio is in one security. Do not add; consider reducing on strength.",
+    "concentrationWarning": true,
+    "signalDate": "2026-06-30",
+    "staleSignal": true
+  },
+  {
+    "symbol": "KBPPWBIL",
+    "currentSignal": "AVOID",
+    "grade": "AVOID",
+    "strategy": "Support Bounce",
+    "entry": 40.9,
+    "tp": 47.7,
+    "sl": 38.83,
+    "rr": 3.29,
+    "holdingStatus": "EXIT / REDUCE REVIEW",
+    "actionReason": "Technical state is AVOID and the position is down 23.88%. Review an exit/reduction plan; do not average down.",
+    "concentrationWarning": false,
+    "signalDate": "2026-06-30",
+    "staleSignal": true
+  },
+  {
+    "symbol": "RAHIMAFOOD",
+    "currentSignal": "WATCH",
+    "grade": "WATCH",
+    "strategy": "Support Bounce",
+    "entry": 96.6,
+    "tp": 101.4,
+    "sl": 94.5,
+    "rr": 2.29,
+    "holdingStatus": "HOLD / REFRESH DATA",
+    "actionReason": "Signal data is 12 days old. Refresh the EOD dataset before acting.",
+    "concentrationWarning": false,
+    "signalDate": "2026-06-30",
+    "staleSignal": true
+  }
+]

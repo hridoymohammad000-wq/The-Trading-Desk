@@ -1,0 +1,108 @@
+{
+  "engine_version": "1.6.0",
+  "output_file": "dse_1y_ohlcv_master_app_ready.csv",
+  "source_files": [
+    "dse_ohlcv_2025-07-01_to_2026-06-30_FULL_APP_READY(2).csv",
+    "dse_ohlcv_2025-07-01_to_2026-06-30_app_ready_COMPLETED(1).csv"
+  ],
+  "source_rows": {
+    "full": 74291,
+    "completed": 51058
+  },
+  "overlap_rows": 40379,
+  "overlap_conflicts": 0,
+  "invalid_source_rows": 0,
+  "final_rows": 84970,
+  "unique_symbols": 460,
+  "unique_dates": 239,
+  "first_date": "2025-07-02",
+  "last_date": "2026-06-30",
+  "weekday_session_counts": {
+    "Monday": 50,
+    "Saturday": 1,
+    "Sunday": 49,
+    "Thursday": 46,
+    "Tuesday": 47,
+    "Wednesday": 46
+  },
+  "rows_per_date": {
+    "minimum": 205,
+    "maximum": 405
+  },
+  "symbol_session_distribution": {
+    "1": 7,
+    "2": 4,
+    "3": 7,
+    "4": 2,
+    "5": 3,
+    "6": 5,
+    "7": 3,
+    "8": 1,
+    "9": 2,
+    "10": 1,
+    "11": 1,
+    "12": 4,
+    "14": 2,
+    "15": 2,
+    "16": 1,
+    "17": 1,
+    "18": 3,
+    "19": 1,
+    "20": 1,
+    "21": 3,
+    "22": 3,
+    "23": 1,
+    "25": 2,
+    "35": 1,
+    "39": 1,
+    "40": 1,
+    "60": 1,
+    "69": 1,
+    "86": 2,
+    "87": 2,
+    "90": 1,
+    "104": 1,
+    "105": 1,
+    "150": 1,
+    "155": 1,
+    "169": 1,
+    "186": 2,
+    "187": 18,
+    "188": 95,
+    "189": 58,
+    "234": 1,
+    "235": 2,
+    "236": 1,
+    "237": 16,
+    "238": 163,
+    "239": 29
+  },
+  "watchlist": {
+    "AL-HAJTEX": {
+      "sessions": 188,
+      "first_date": "2025-07-02",
+      "last_date": "2026-06-30"
+    },
+    "BDFINANCE": {
+      "sessions": 238,
+      "first_date": "2025-07-02",
+      "last_date": "2026-06-30"
+    },
+    "KBPPWBIL": {
+      "sessions": 189,
+      "first_date": "2025-07-02",
+      "last_date": "2026-06-30"
+    },
+    "RAHIMAFOOD": {
+      "sessions": 238,
+      "first_date": "2025-07-02",
+      "last_date": "2026-06-30"
+    }
+  },
+  "limitations": [
+    "The 218-symbol completed source includes Sunday sessions that the 460-symbol source omitted.",
+    "The remaining symbols therefore have fewer sessions; no OHLCV values were invented to fill those gaps.",
+    "The latest validated completed session in the supplied files is 2026-06-30."
+  ],
+  "source_errors": []
+}
