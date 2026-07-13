@@ -65,6 +65,35 @@ export const DataEngine: React.FC<DataEngineProps> = ({
 
   const isBackendDisabled = backendConnected !== true;
 
+  const loadLatestServerState = async (statusLabel: string) => {
+    const [serverSnapshots, serverSignals, latest] = await Promise.all([
+      BackendService.listSnapshots(),
+      BackendService.getSignals(),
+      BackendService.getLatestMarketRecords(),
+    ]);
+    setBackendSnapshots(serverSnapshots);
+    setSignals(serverSignals);
+    if (latest.records.length > 0) {
+      setStocksCount(latest.total_symbols);
+      setMarketBias(latest.market_bias);
+      setMarketStatus(`${statusLabel} - ${latest.date ?? 'Latest Session'}`);
+      setDataOrigin('REAL');
+      const records: MarketRecord[] = latest.records.map((row: any) => ({
+        symbol: row.symbol,
+        date: row.trade_date,
+        open: Number(row.open),
+        high: Number(row.high),
+        low: Number(row.low),
+        close: Number(row.close),
+        volume: Number(row.volume),
+        sector: row.sector,
+        origin: 'REAL',
+      }));
+      onMarketRecordsActivated(records, 'REAL');
+    }
+    return { serverSnapshots, serverSignals, latest };
+  };
+
   const checkBackendConnection = async (quiet = false) => {
     if (!quiet) setCheckingBackend(true);
     if (!quiet) addLog(`BACKEND: Pinging Python server at ${BackendService.getBaseUrl()}...`);
@@ -72,7 +101,7 @@ export const DataEngine: React.FC<DataEngineProps> = ({
     setBackendConnected(connected);
     setCheckingBackend(false);
     if (connected) {
-      if (!quiet) addLog('SUCCESS: Connected to Python FastAPI backend and SQLite storage.');
+      if (!quiet) addLog('SUCCESS: Connected to Python FastAPI backend and server database storage.');
       try {
         const [list, serverSignals, latest] = await Promise.all([
           BackendService.listSnapshots(),
@@ -243,9 +272,9 @@ export const DataEngine: React.FC<DataEngineProps> = ({
         const result = await BackendService.importMarketCSV(csvInput, date, dataOrigin === 'DEMO' ? 'DEMO' : 'MANUAL_IMPORT');
         const serverList = await BackendService.listSnapshots();
         setBackendSnapshots(serverList);
-        addLog(`SUCCESS: Mirrored validated dataset to SQLite snapshot ${result.snapshot_id}.`);
+        addLog(`SUCCESS: Mirrored validated dataset to server snapshot ${result.snapshot_id}.`);
       } catch (error: any) {
-        addLog(`WARN: Local snapshot saved, but SQLite mirror failed: ${error.message}`);
+        addLog(`WARN: Local snapshot saved, but server mirror failed: ${error.message}`);
       }
     } else {
       addLog('INFO: Python server disconnected. Snapshot remains in local browser storage only.');
@@ -387,29 +416,9 @@ export const DataEngine: React.FC<DataEngineProps> = ({
         throw new Error(job.error || job.message || 'DSE collection failed.');
       }
 
-      const [serverSnapshots, serverSignals, latest] = await Promise.all([
-        BackendService.listSnapshots(),
-        BackendService.getSignals(),
-        BackendService.getLatestMarketRecords(),
-      ]);
-      setBackendSnapshots(serverSnapshots);
-      setSignals(serverSignals);
-      setStocksCount(latest.total_symbols);
-      setMarketBias(latest.market_bias);
-      setMarketStatus(`DSE ${mode === 'backfill' ? '1Y Backfill' : 'Daily Update'} Active — ${latest.date ?? 'Latest Session'}`);
-      setDataOrigin('REAL');
-      const latestRecords: MarketRecord[] = latest.records.map((row: any) => ({
-        symbol: row.symbol,
-        date: row.trade_date,
-        open: Number(row.open),
-        high: Number(row.high),
-        low: Number(row.low),
-        close: Number(row.close),
-        volume: Number(row.volume),
-        sector: row.sector,
-        origin: 'REAL',
-      }));
-      onMarketRecordsActivated(latestRecords, 'REAL');
+      const { serverSignals, latest } = await loadLatestServerState(
+        `DSE ${mode === 'backfill' ? '1Y Backfill' : 'Daily Update'} Active`
+      );
       const newRows = job.result?.new_records_collected;
       addLog(
         `SUCCESS: ${newRows ?? job.result?.records_collected ?? 0} ${mode === 'daily' ? 'new ' : ''}rows collected and saved; `
@@ -418,8 +427,27 @@ export const DataEngine: React.FC<DataEngineProps> = ({
       );
       setScannerProgress(100);
     } catch (err: any) {
-      addLog(`REAL COLLECTOR FAILED: ${err.message || 'Unknown collection error.'}`);
-      setScannerProgress(0);
+      const message = err.message || 'Unknown collection error.';
+      addLog(`REAL COLLECTOR FAILED: ${message}`);
+      const shouldFallback = /TLS_CERTIFICATE_ERROR|DNS_RESOLUTION_ERROR|No verified DSE historical source/i.test(message);
+      if (shouldFallback) {
+        addLog('FALLBACK: Running bundled server-side 1-year Python import because live DSE source is unreachable.');
+        try {
+          const result = await BackendService.importBundledMaster();
+          const { serverSignals, latest } = await loadLatestServerState('Server Historical Database Active');
+          addLog(
+            `SUCCESS: Bundled 1-year server dataset reloaded into active storage. `
+            + `${result.stats?.validRows ?? latest.total_symbols} latest-session symbols active; `
+            + `${serverSignals.length} signals refreshed for ${latest.date ?? 'latest session'}.`
+          );
+          setScannerProgress(100);
+        } catch (fallbackError: any) {
+          addLog(`FALLBACK FAILED: ${fallbackError.message || 'Bundled server reload failed.'}`);
+          setScannerProgress(0);
+        }
+      } else {
+        setScannerProgress(0);
+      }
     } finally {
       setIsScanning(false);
     }
@@ -480,7 +508,7 @@ export const DataEngine: React.FC<DataEngineProps> = ({
         setActiveSnapshotId(snapId);
         setDataOrigin('REAL');
         onMarketRecordsActivated(latestRecords, 'REAL');
-        addLog(`SUCCESS: Large historical snapshot remains in SQLite; loaded ${latestRecords.length} latest-session rows into the UI.`);
+        addLog(`SUCCESS: Large historical snapshot remains in server storage; loaded ${latestRecords.length} latest-session rows into the UI.`);
         return;
       }
 
@@ -604,7 +632,7 @@ export const DataEngine: React.FC<DataEngineProps> = ({
                 <span className="text-white font-bold">{BackendService.getBaseUrl()}</span>
               </div>
               <p className="text-[10px] text-slate-500 leading-normal font-sans">
-                Uses the integrated bdshare adapter for DSE day-end history, stores validated OHLCV in SQLite, and refreshes signals. Initial 1-year collection can take several minutes.
+                Uses the integrated bdshare adapter for DSE day-end history, stores validated OHLCV in the server database, and falls back to the bundled verified 1-year dataset when live DSE sources are unreachable.
               </p>
             </div>
 
@@ -630,7 +658,7 @@ export const DataEngine: React.FC<DataEngineProps> = ({
                 onClick={() => handleCollectBackendData('backfill')}
                 disabled={isScanning || isBackendDisabled}
                 className="bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 px-3 py-2 rounded-lg font-semibold flex items-center justify-center gap-1.5 transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer font-sans"
-                title="First-time setup: collect approximately one year of DSE daily OHLCV"
+                title="First-time setup: try live 1-year DSE collection, then auto-fallback to the bundled verified server dataset if DSE is unreachable"
               >
                 <Play className="h-3 w-3" />
                 Collect + Save 1-Year

@@ -124,6 +124,14 @@ def bootstrap_bundled_master() -> Optional[Dict[str, Any]]:
     return _import(payload, "REAL", "bundled-master-verified")
 
 
+def import_bundled_master_snapshot(source_label: str = "bundled-master-manual-reload") -> Dict[str, Any]:
+    """Force-load the server-bundled verified 1-year master dataset."""
+    if not BUNDLED_MASTER.exists():
+        raise HTTPException(404, "Bundled 1-year master dataset is missing on the server.")
+    payload = CSVUploadRequest(csv_data=BUNDLED_MASTER.read_text(encoding="utf-8"), origin="REAL")
+    return _import(payload, "REAL", source_label)
+
+
 @app.get("/api/market/quality")
 def market_quality() -> Dict[str, Any]:
     records = all_market_records()
@@ -165,6 +173,15 @@ def market_quality() -> Dict[str, Any]:
 def market_import(payload: CSVUploadRequest) -> Dict[str, Any]:
     origin = payload.origin if payload.origin in {"REAL", "MANUAL_IMPORT", "DEMO"} else "MANUAL_IMPORT"
     return _import(payload, origin)
+
+
+@app.post("/api/market/import-bundled-master")
+def market_import_bundled_master() -> Dict[str, Any]:
+    result = import_bundled_master_snapshot()
+    result["message"] = (
+        "Reloaded the verified server-bundled 1-year OHLCV dataset into active storage and refreshed signals."
+    )
+    return result
 
 
 @app.post("/api/collect-dse-data")

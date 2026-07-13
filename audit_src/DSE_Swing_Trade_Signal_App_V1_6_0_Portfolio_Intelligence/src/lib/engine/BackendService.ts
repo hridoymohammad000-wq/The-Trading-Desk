@@ -122,6 +122,14 @@ export class BackendService {
     return response.json();
   }
 
+  public static async importBundledMaster(): Promise<any> {
+    const response = await fetch(`${this.getBaseUrl()}/market/import-bundled-master`, {
+      method: 'POST',
+    });
+    if (!response.ok) throw await parseError(response, 'Bundled 1-year server dataset reload failed.');
+    return response.json();
+  }
+
   public static async listSnapshots(): Promise<BackendSnapshotMeta[]> {
     const response = await fetch(`${this.getBaseUrl()}/market/snapshots`);
     if (!response.ok) throw new Error('Failed to retrieve server snapshots.');
