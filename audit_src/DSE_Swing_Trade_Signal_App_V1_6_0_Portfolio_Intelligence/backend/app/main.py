@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+from .config import DSE_STORAGE_MODE
 from .dse_collector import get_collection_job, parse_and_validate_csv_data, start_collection_job, trigger_scraped_collection_placeholder
 from .models import CSVUploadRequest, CollectionRequest
 from .signal_bridge import calculate_market_bias, generate_swing_signals_py
@@ -61,7 +62,7 @@ def health() -> Dict[str, Any]:
     stale_days = (date.today() - date.fromisoformat(latest_date)).days if latest_date else None
     return {
         "status": "ok",
-        "storage": "sqlite",
+        "storage": DSE_STORAGE_MODE,
         "collector": "bdshare-preflight-required",
         "collector_modes": ["backfill", "daily"],
         "signal_engine": "historical-ohlcv-v1.6-conservative",
