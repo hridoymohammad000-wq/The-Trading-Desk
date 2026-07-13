@@ -363,7 +363,7 @@ export const DataEngine: React.FC<DataEngineProps> = ({
     setIsScanning(true);
     setScannerProgress(1);
     setCollectorJob(null);
-    addLog(`REAL COLLECTOR: Starting ${mode === 'backfill' ? '1-year historical backfill' : 'daily incremental update'} via bdshare...`);
+    addLog(`REAL COLLECTOR: Starting ${mode === 'backfill' ? '1-year historical backfill collect + save' : 'daily collect + save update'} via bdshare...`);
     try {
       const healthy = await BackendService.checkHealth();
       if (!healthy) {
@@ -410,7 +410,12 @@ export const DataEngine: React.FC<DataEngineProps> = ({
         origin: 'REAL',
       }));
       onMarketRecordsActivated(latestRecords, 'REAL');
-      addLog(`SUCCESS: ${job.result?.records_collected ?? 0} rows stored; ${job.result?.total_symbols ?? latest.total_symbols} symbols; ${serverSignals.length} signals refreshed.`);
+      const newRows = job.result?.new_records_collected;
+      addLog(
+        `SUCCESS: ${newRows ?? job.result?.records_collected ?? 0} ${mode === 'daily' ? 'new ' : ''}rows collected and saved; `
+        + `${job.result?.records_collected ?? 0} total rows active; `
+        + `${job.result?.total_symbols ?? latest.total_symbols} symbols; ${serverSignals.length} signals refreshed.`
+      );
       setScannerProgress(100);
     } catch (err: any) {
       addLog(`REAL COLLECTOR FAILED: ${err.message || 'Unknown collection error.'}`);
@@ -628,7 +633,7 @@ export const DataEngine: React.FC<DataEngineProps> = ({
                 title="First-time setup: collect approximately one year of DSE daily OHLCV"
               >
                 <Play className="h-3 w-3" />
-                Collect 1-Year Data
+                Collect + Save 1-Year
               </button>
 
               <button
@@ -639,7 +644,7 @@ export const DataEngine: React.FC<DataEngineProps> = ({
                 title="After the initial backfill: append the newest available DSE EOD rows"
               >
                 <RefreshCw className="h-3 w-3" />
-                Update Latest EOD
+                Daily Collect + Save
               </button>
 
               <button

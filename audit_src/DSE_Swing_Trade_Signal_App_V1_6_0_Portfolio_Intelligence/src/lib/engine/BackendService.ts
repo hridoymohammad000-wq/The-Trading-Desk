@@ -49,6 +49,7 @@ export interface CollectorJob {
     snapshot_id?: string;
     total_symbols?: number;
     records_collected?: number;
+    new_records_collected?: number;
     failed_symbols?: number;
     market_bias?: MarketBiasType;
     signals_generated?: number;

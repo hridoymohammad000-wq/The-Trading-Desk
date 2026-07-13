@@ -20,6 +20,7 @@ from .config import DSE_STORAGE_PATH
 from .sector_map import get_sector_by_symbol
 from .signal_bridge import calculate_market_bias, generate_swing_signals_py
 from .storage import (
+    all_market_records,
     latest_day_records,
     latest_market_trade_date,
     load_collector_job,
@@ -451,8 +452,16 @@ def _run_collection(job_id: str, mode: str, days_back: int, requested_symbols: O
                 return
             raise RuntimeError(f"DSE collection returned zero validated OHLCV rows. Failed symbols: {len(failed)}")
 
-        unique = {(row["symbol"], row["trade_date"]): row for row in all_records}
-        records = sorted(unique.values(), key=lambda row: (row["symbol"], row["trade_date"]))
+        new_unique = {(row["symbol"], row["trade_date"]): row for row in all_records}
+        new_records = sorted(new_unique.values(), key=lambda row: (row["symbol"], row["trade_date"]))
+        if mode == "daily":
+            # Daily refresh must preserve the validated historical base and append/overwrite
+            # only the newly collected symbol/date rows.
+            merged = {(row["symbol"], row["trade_date"]): row for row in all_market_records()}
+            merged.update(new_unique)
+            records = sorted(merged.values(), key=lambda row: (row["symbol"], row["trade_date"]))
+        else:
+            records = new_records
         latest_date = max(row["trade_date"] for row in records)
         snapshot_id = f"DSE-REAL-{mode.upper()}-{latest_date.replace('-', '')}-{uuid.uuid4().hex[:6]}"
         status = "PASSED_WITH_WARNINGS" if failed or invalid_count else "PASSED"
@@ -492,6 +501,7 @@ def _run_collection(job_id: str, mode: str, days_back: int, requested_symbols: O
             "successful_symbols": len(symbols) - len(failed),
             "failed_symbols": len(failed),
             "records_collected": len(records),
+            "new_records_collected": len(new_records),
             "invalid_rows": invalid_count,
             "start_date": snapshot["start_date"],
             "end_date": latest_date,
@@ -500,7 +510,13 @@ def _run_collection(job_id: str, mode: str, days_back: int, requested_symbols: O
             "exports": exports,
             "errors": failed[:50],
         }
-        _update_job(job_id, status="COMPLETED", stage="COMPLETED", progress=100, message=f"Collection complete: {len(records)} rows across {result['total_symbols']} symbols.", result=result)
+        summary_message = (
+            f"Collection complete: {len(new_records)} new rows merged into {len(records)} total rows across "
+            f"{result['total_symbols']} symbols."
+            if mode == "daily"
+            else f"Collection complete: {len(records)} rows across {result['total_symbols']} symbols."
+        )
+        _update_job(job_id, status="COMPLETED", stage="COMPLETED", progress=100, message=summary_message, result=result)
         save_log("INFO", f"Collector job {job_id} completed: {result}")
     except Exception as exc:
         message = str(exc).replace("\n", " ")[:1000]
