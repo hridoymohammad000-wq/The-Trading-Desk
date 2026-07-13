@@ -15,6 +15,23 @@ A local React + FastAPI + SQLite DSE swing-analysis application. V1.6.0 focuses 
 
 The master preserves the supplied data exactly. It does **not** invent missing sessions. The 218-symbol completed source contains Sunday sessions that were absent from the larger 460-symbol source, so per-symbol coverage differs. See `reports/master_data_quality.json`.
 
+## Packaged SQLite state
+
+The default configuration uses `storage/dse_swing_v1.sqlite3`, but release packages should be distributed **without** a pre-populated SQLite database file.
+
+- The default configuration in `.env.example` points to that file.
+- On first run, the application may create the SQLite database automatically.
+- A release package should not ship with preloaded schema metadata, active snapshot state, or generated signals.
+- A first run from a clean package should therefore start from a clean local database unless a different existing database path is configured.
+
+## Freshness warning for this package
+
+The bundled master dataset ends on **2026-06-30**.
+
+- On dates later than the configured freshness threshold, the application is expected to open in a stale-data / trading-blocked state.
+- This is a safety behavior, not a runtime failure.
+- Users must refresh or import a more recent validated DSE EOD dataset before creating new paper trades or acting on current signals.
+
 ## V1.6.0 changes
 
 - One-click startup automatically loads the bundled master into SQLite when the database is empty.
@@ -289,3 +306,9 @@ npm run build
 ## Important limitation
 
 The bundled dataset ends on **2026-06-30**. Refresh/import a completed DSE EOD dataset before using signals for a later date. The application must be used as a decision-support and risk-control tool, not as a profit guarantee.
+
+For packaged releases:
+
+- do not include a preloaded SQLite state file in `storage/`;
+- the bundled master dataset date is `2026-06-30`;
+- after first bootstrap, a stale-data trading block is expected until fresh validated market data is imported or refreshed.
