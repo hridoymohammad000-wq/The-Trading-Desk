@@ -67,20 +67,31 @@ async function parseError(response: Response, fallback: string): Promise<Error> 
   return new Error(fallback);
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export class BackendService {
   public static getBaseUrl(): string {
     return StorageService.getBaseUrl();
   }
 
   public static async checkHealth(): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.getBaseUrl()}/health`, { signal: AbortSignal.timeout(3500) });
-      if (!response.ok) return false;
-      const data = await response.json();
-      return data.status === 'ok';
-    } catch {
-      return false;
+    const timeouts = [4500, 9000, 12000];
+    for (let index = 0; index < timeouts.length; index += 1) {
+      try {
+        const response = await fetch(`${this.getBaseUrl()}/health`, { signal: AbortSignal.timeout(timeouts[index]) });
+        if (!response.ok) continue;
+        const data = await response.json();
+        if (data.status === 'ok') return true;
+      } catch {
+        // Render free instances may be waking from cold start; retry below.
+      }
+      if (index < timeouts.length - 1) {
+        await sleep(1500);
+      }
     }
+    return false;
   }
 
   public static async startCollection(

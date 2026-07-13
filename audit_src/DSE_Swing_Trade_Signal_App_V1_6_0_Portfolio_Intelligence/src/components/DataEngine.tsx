@@ -96,7 +96,7 @@ export const DataEngine: React.FC<DataEngineProps> = ({
 
   const checkBackendConnection = async (quiet = false) => {
     if (!quiet) setCheckingBackend(true);
-    if (!quiet) addLog(`BACKEND: Pinging Python server at ${BackendService.getBaseUrl()}...`);
+    if (!quiet) addLog(`BACKEND: Pinging Python server at ${BackendService.getBaseUrl()} and allowing time for Render cold-start wake-up...`);
     const connected = await BackendService.checkHealth();
     setBackendConnected(connected);
     setCheckingBackend(false);
@@ -132,7 +132,7 @@ export const DataEngine: React.FC<DataEngineProps> = ({
         if (!quiet) addLog(`WARN: Connected, but server state loading failed: ${err.message}`);
       }
     } else if (!quiet) {
-      addLog(`FAIL: Python server unreachable at ${BackendService.getBaseUrl()}. Local CSV/manual mode remains available.`);
+      addLog(`FAIL: Python server still unreachable after cold-start retries at ${BackendService.getBaseUrl()}. Local CSV/manual mode remains available.`);
     }
   };
 
@@ -612,13 +612,16 @@ export const DataEngine: React.FC<DataEngineProps> = ({
                 Python Analytical Backend Status
               </h3>
               <div className="flex items-center gap-1.5">
-                {backendConnected === null ? (
-                  <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-ping" title="Checking Connection..." />
+                {checkingBackend || backendConnected === null ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold tracking-wider uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" /> Waking Server
+                  </span>
                 ) : backendConnected ? (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold tracking-wider uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Connected
                   </span>
-                ) : (
+                ) : null}
+                {!checkingBackend && backendConnected === false && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold tracking-wider uppercase bg-rose-500/10 text-rose-400 border border-rose-500/20">
                     <span className="h-1.5 w-1.5 rounded-full bg-rose-500" /> Disconnected
                   </span>
@@ -636,9 +639,13 @@ export const DataEngine: React.FC<DataEngineProps> = ({
               </p>
             </div>
 
-            {isBackendDisabled && (
+            {checkingBackend ? (
               <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 text-xs text-amber-400 leading-normal font-sans">
-                ⚠️ Python server is disconnected. Start the included Windows launcher or continue with local CSV/manual mode.
+                Render free server is waking up. Health check now retries automatically before marking the backend offline.
+              </div>
+            ) : isBackendDisabled && (
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3 text-xs text-amber-400 leading-normal font-sans">
+                Python server is still unreachable after cold-start retries. Wait a few more seconds, then ping again or continue with local CSV/manual mode.
               </div>
             )}
 

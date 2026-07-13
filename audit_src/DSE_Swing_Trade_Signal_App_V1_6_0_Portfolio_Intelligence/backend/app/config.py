@@ -28,6 +28,8 @@ SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "").strip()
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
 SUPABASE_DB_PASSWORD = os.getenv("SUPABASE_DB_PASSWORD", "").strip()
 DATABASE_URL = _default_database_url()
+DSE_ALT_SOURCE_URL = os.getenv("DSE_ALT_SOURCE_URL", "").strip()
+DSE_ALT_SOURCE_NAME = os.getenv("DSE_ALT_SOURCE_NAME", "ALT_CSV_SOURCE").strip() or "ALT_CSV_SOURCE"
 HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8000"))
 DEBUG = os.getenv("DEBUG", "false").lower() == "true"

@@ -16,7 +16,7 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
-from .config import DSE_STORAGE_PATH
+from .config import DSE_ALT_SOURCE_NAME, DSE_ALT_SOURCE_URL, DSE_STORAGE_PATH
 from .sector_map import get_sector_by_symbol
 from .signal_bridge import calculate_market_bias, generate_swing_signals_py
 from .storage import (
@@ -252,6 +252,48 @@ def parse_and_validate_csv_data(
     return valid_records, invalid_rows, {"duplicates": duplicate_rows_count, "missing": missing_values_count}
 
 
+def fetch_alternate_source_history(start: str, end: str) -> Tuple[List[Dict[str, Any]], int, Dict[str, Any]]:
+    if not DSE_ALT_SOURCE_URL:
+        raise RuntimeError("No alternate source URL is configured.")
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) DSE-Swing-Trade-Signal/1.6",
+        "Accept": "text/csv,text/plain,application/octet-stream,*/*;q=0.8",
+    }
+    response = requests.get(DSE_ALT_SOURCE_URL, headers=headers, timeout=(10, 45), allow_redirects=True)
+    response.raise_for_status()
+
+    csv_text = response.content.decode("utf-8-sig", errors="replace")
+    valid_rows, invalid_rows, stats = parse_and_validate_csv_data(csv_text)
+    if not valid_rows:
+        raise RuntimeError("Alternate CSV source returned no valid OHLCV rows.")
+
+    start_iso = date.fromisoformat(start)
+    end_iso = date.fromisoformat(end)
+    filtered_rows: List[Dict[str, Any]] = []
+    for row in valid_rows:
+        trade_day = date.fromisoformat(str(row["trade_date"]))
+        if start_iso <= trade_day <= end_iso:
+            row["source"] = "REAL"
+            row["created_at"] = _utc_now()
+            filtered_rows.append(row)
+
+    if not filtered_rows:
+        raise RuntimeError(
+            f"Alternate CSV source is reachable, but no rows were inside the requested date range {start} to {end}."
+        )
+
+    meta = {
+        "source_name": DSE_ALT_SOURCE_NAME,
+        "source_url": DSE_ALT_SOURCE_URL,
+        "downloaded_rows": len(valid_rows),
+        "filtered_rows": len(filtered_rows),
+        "invalid_rows": len(invalid_rows),
+        "stats": stats,
+    }
+    return filtered_rows, len(invalid_rows), meta
+
+
 def load_bundled_symbols() -> List[str]:
     if not TICKERS_PATH.exists():
         raise FileNotFoundError(f"Bundled ticker list not found: {TICKERS_PATH}")
@@ -365,16 +407,6 @@ def _write_export(records: List[Dict[str, Any]], errors: List[Dict[str, str]], p
 
 def _run_collection(job_id: str, mode: str, days_back: int, requested_symbols: Optional[List[str]], refresh_symbols: bool, pause_seconds: float) -> None:
     try:
-        _update_job(job_id, status="RUNNING", stage="SOURCE_CHECK", progress=1, message="Checking DSE source DNS, TLS certificate, and historical archive response before full collection.")
-        selected_source, source_diagnostics = select_working_dse_source()
-        if not selected_source:
-            codes = ", ".join(f"{item['base_url']}={item.get('code')}" for item in source_diagnostics)
-            raise RuntimeError(
-                "No verified DSE historical source is currently reachable. "
-                f"Source checks: {codes}. Full-market collection was stopped before symbol processing. "
-                "Use validated CSV import and retry later; TLS verification was not bypassed."
-            )
-        _update_job(job_id, stage="SOURCE_READY", progress=2, message=f"Verified DSE source: {selected_source}", selected_source=selected_source, source_diagnostics=source_diagnostics)
         today = date.today()
         if mode == "daily":
             latest = latest_market_trade_date()
@@ -387,47 +419,97 @@ def _run_collection(job_id: str, mode: str, days_back: int, requested_symbols: O
         else:
             start_date = today - timedelta(days=max(60, min(days_back, 730)))
 
-        if requested_symbols:
-            symbols = list(dict.fromkeys(str(value).strip().upper() for value in requested_symbols if str(value).strip()))
-            symbol_source = "REQUESTED_SYMBOLS"
+        _update_job(job_id, status="RUNNING", stage="SOURCE_CHECK", progress=1, message="Checking DSE source DNS, TLS certificate, and historical archive response before full collection.")
+        selected_source, source_diagnostics = select_working_dse_source()
+        using_alt_source = False
+        alt_source_meta: Dict[str, Any] = {}
+        if not selected_source and not DSE_ALT_SOURCE_URL:
+            codes = ", ".join(f"{item['base_url']}={item.get('code')}" for item in source_diagnostics)
+            raise RuntimeError(
+                "No verified DSE historical source is currently reachable. "
+                f"Source checks: {codes}. Full-market collection was stopped before symbol processing. "
+                "Use validated CSV import and retry later; TLS verification was not bypassed."
+            )
+        if selected_source:
+            _update_job(job_id, stage="SOURCE_READY", progress=2, message=f"Verified DSE source: {selected_source}", selected_source=selected_source, source_diagnostics=source_diagnostics)
         else:
-            symbols, symbol_source = load_symbols(refresh_from_dse=refresh_symbols)
-
-        if not symbols:
-            raise RuntimeError("No DSE symbols were available for collection.")
-
-        _update_job(job_id, status="RUNNING", stage="FETCHING", progress=1, message=f"Collecting {len(symbols)} symbols from {start_date} to {today}.", total_symbols=len(symbols), completed_symbols=0, symbol_source=symbol_source, start_date=str(start_date), end_date=str(today))
+            using_alt_source = True
+            _update_job(
+                job_id,
+                stage="ALT_SOURCE",
+                progress=2,
+                message=f"Official DSE sources are unreachable. Trying alternate CSV source: {DSE_ALT_SOURCE_NAME}.",
+                source_diagnostics=source_diagnostics,
+                alternate_source_url=DSE_ALT_SOURCE_URL,
+            )
 
         all_records: List[Dict[str, Any]] = []
         failed: List[Dict[str, str]] = []
         invalid_count = 0
-        consecutive_failures = 0
+        symbol_source = "ALT_CSV_SOURCE"
+        symbols: List[str] = []
+        if using_alt_source:
+            all_records, invalid_count, alt_source_meta = fetch_alternate_source_history(str(start_date), str(today))
+            if requested_symbols:
+                requested = {str(value).strip().upper() for value in requested_symbols if str(value).strip()}
+                all_records = [row for row in all_records if row["symbol"] in requested]
+            symbols = sorted({row["symbol"] for row in all_records})
+            if not symbols:
+                raise RuntimeError("Alternate source returned no rows for the requested symbols/date range.")
+            _update_job(
+                job_id,
+                status="RUNNING",
+                stage="ALT_SOURCE_READY",
+                progress=88,
+                total_symbols=len(symbols),
+                completed_symbols=len(symbols),
+                successful_symbols=len(symbols),
+                failed_symbols=0,
+                records_collected=len(all_records),
+                symbol_source=symbol_source,
+                start_date=str(start_date),
+                end_date=str(today),
+                message=f"Loaded {len(all_records)} validated rows from alternate source {DSE_ALT_SOURCE_NAME}.",
+            )
+        else:
+            if requested_symbols:
+                symbols = list(dict.fromkeys(str(value).strip().upper() for value in requested_symbols if str(value).strip()))
+                symbol_source = "REQUESTED_SYMBOLS"
+            else:
+                symbols, symbol_source = load_symbols(refresh_from_dse=refresh_symbols)
 
-        for index, symbol in enumerate(symbols, start=1):
-            try:
-                rows, errors = fetch_symbol_history(symbol, str(start_date), str(today))
-                all_records.extend(rows)
-                invalid_count += len(errors)
-                if not rows:
-                    failed.append({"symbol": symbol, "error": errors[0] if errors else "No valid rows returned"})
+            if not symbols:
+                raise RuntimeError("No DSE symbols were available for collection.")
+
+            _update_job(job_id, status="RUNNING", stage="FETCHING", progress=1, message=f"Collecting {len(symbols)} symbols from {start_date} to {today}.", total_symbols=len(symbols), completed_symbols=0, symbol_source=symbol_source, start_date=str(start_date), end_date=str(today))
+
+            consecutive_failures = 0
+
+            for index, symbol in enumerate(symbols, start=1):
+                try:
+                    rows, errors = fetch_symbol_history(symbol, str(start_date), str(today))
+                    all_records.extend(rows)
+                    invalid_count += len(errors)
+                    if not rows:
+                        failed.append({"symbol": symbol, "error": errors[0] if errors else "No valid rows returned"})
+                        consecutive_failures += 1
+                    else:
+                        consecutive_failures = 0
+                except Exception as exc:
+                    failed.append({"symbol": symbol, "error": str(exc).replace("\n", " ")[:600]})
                     consecutive_failures += 1
-                else:
-                    consecutive_failures = 0
-            except Exception as exc:
-                failed.append({"symbol": symbol, "error": str(exc).replace("\n", " ")[:600]})
-                consecutive_failures += 1
-            progress = min(88, max(2, int(index / len(symbols) * 88)))
-            _update_job(job_id, progress=progress, completed_symbols=index, current_symbol=symbol, successful_symbols=index - len(failed), failed_symbols=len(failed), records_collected=len(all_records), consecutive_failures=consecutive_failures, message=f"Processed {index}/{len(symbols)} symbols. Latest: {symbol}")
-            if consecutive_failures >= FAIL_FAST_CONSECUTIVE and not all_records:
-                recent = failed[-FAIL_FAST_CONSECUTIVE:]
-                summary = " | ".join(f"{item['symbol']}: {item['error'][:180]}" for item in recent)
-                raise RuntimeError(
-                    f"Collector stopped after {FAIL_FAST_CONSECUTIVE} consecutive symbol failures with zero rows. "
-                    f"Verified source became unusable or its page format changed. Recent failures: {summary}. "
-                    "Previous validated market database remains active."
-                )
-            if pause_seconds > 0 and index < len(symbols):
-                time.sleep(max(0.0, min(pause_seconds, 3.0)))
+                progress = min(88, max(2, int(index / len(symbols) * 88)))
+                _update_job(job_id, progress=progress, completed_symbols=index, current_symbol=symbol, successful_symbols=index - len(failed), failed_symbols=len(failed), records_collected=len(all_records), consecutive_failures=consecutive_failures, message=f"Processed {index}/{len(symbols)} symbols. Latest: {symbol}")
+                if consecutive_failures >= FAIL_FAST_CONSECUTIVE and not all_records:
+                    recent = failed[-FAIL_FAST_CONSECUTIVE:]
+                    summary = " | ".join(f"{item['symbol']}: {item['error'][:180]}" for item in recent)
+                    raise RuntimeError(
+                        f"Collector stopped after {FAIL_FAST_CONSECUTIVE} consecutive symbol failures with zero rows. "
+                        f"Verified source became unusable or its page format changed. Recent failures: {summary}. "
+                        "Previous validated market database remains active."
+                    )
+                if pause_seconds > 0 and index < len(symbols):
+                    time.sleep(max(0.0, min(pause_seconds, 3.0)))
 
         if not all_records:
             if mode == "daily":
@@ -471,8 +553,8 @@ def _run_collection(job_id: str, mode: str, days_back: int, requested_symbols: O
             "start_date": min(row["trade_date"] for row in records),
             "end_date": latest_date,
             "origin": "REAL",
-            "source": "DSE_DAY_END_ARCHIVE_VIA_BDSHARE",
-            "collector": "bdshare",
+            "source": DSE_ALT_SOURCE_NAME if using_alt_source else "DSE_DAY_END_ARCHIVE_VIA_BDSHARE",
+            "collector": "alt_csv_source" if using_alt_source else "bdshare",
             "collector_mode": mode,
             "total_symbols": len({row["symbol"] for row in records}),
             "record_count": len(records),
@@ -481,7 +563,7 @@ def _run_collection(job_id: str, mode: str, days_back: int, requested_symbols: O
             "status": status,
             "records": records,
         }
-        _update_job(job_id, stage="STORING", progress=91, message=f"Saving {len(records)} validated rows to SQLite.")
+        _update_job(job_id, stage="STORING", progress=91, message=f"Saving {len(records)} validated rows to active server storage.")
         save_market_snapshot(snapshot_id, snapshot)
 
         day_records = [row for row in records if row["trade_date"] == latest_date]
@@ -495,7 +577,11 @@ def _run_collection(job_id: str, mode: str, days_back: int, requested_symbols: O
         result = {
             "snapshot_id": snapshot_id,
             "mode": mode,
-            "source": f"DSE day-end archive via vendored bdshare ({selected_source})",
+            "source": (
+                f"Alternate CSV source ({DSE_ALT_SOURCE_NAME})"
+                if using_alt_source
+                else f"DSE day-end archive via vendored bdshare ({selected_source})"
+            ),
             "symbol_source": symbol_source,
             "total_symbols": len({row["symbol"] for row in records}),
             "successful_symbols": len(symbols) - len(failed),
@@ -510,6 +596,8 @@ def _run_collection(job_id: str, mode: str, days_back: int, requested_symbols: O
             "exports": exports,
             "errors": failed[:50],
         }
+        if alt_source_meta:
+            result["alternate_source"] = alt_source_meta
         summary_message = (
             f"Collection complete: {len(new_records)} new rows merged into {len(records)} total rows across "
             f"{result['total_symbols']} symbols."
