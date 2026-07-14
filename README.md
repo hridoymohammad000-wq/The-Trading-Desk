@@ -1,132 +1,132 @@
-# The Trading Desk — DSE Swing Trade Signal App V2
+# The Trading Desk — Audited Repair Baseline 1.6.1
 
-A local-first React + FastAPI + SQLite application for DSE market analysis, explainable swing signals, portfolio intelligence, paper trading, risk control, and validated EOD data management.
+Local-first React + FastAPI + SQLite/Postgres application for DSE historical market analysis, explainable signals, portfolio review and paper trading.
 
-## Current verified project status
+> **Release integrity notice:** The supplied executable source is the V1.6 code line with the verified audit-repair batch below. Earlier README claims that a separate V2 Step-12 package was already synchronized were not supported by this ZIP and are no longer treated as implementation evidence.
 
-- Active development line: **V2.0**
-- Completed roadmap tasks: **V2-001 through V2-012**
-- Roadmap completion: **12/15 tasks (80%)**
-- Next task: **V2-013 — SQLite-backed Watchlist and Alerts**
-- Production release status: **Not yet approved**
+## Working branch status
 
-The latest verified working package is:
+- Current isolated branch: `fix/issue-01-staged-snapshot-bypass`
+- Parent repair baseline: `fix/audit-repair-batch-01`
+- Default branch: unchanged
+- Merge status: **NOT MERGED**
+- GitHub push status: unavailable in this session because the connected repository permission is read-only
 
-`DSE_Swing_Trade_Signal_App_V2_STEP_12_PORTFOLIO_ANALYTICS.zip`
+## Audit Repair Checklist — 14 July 2026
 
-> Important: the repository source must be synchronized with the verified V2 Step 12 package before V2-013 development continues on GitHub.
+Status legend: `[ ] NOT STARTED` · `[-] IN PROGRESS` · `[x] VERIFIED`
 
-## Completed V2 work
+- [x] **TD-AUD-01 — Release/source integrity:** README, backend version and package version now identify the actual 1.6.1 audited repair baseline.
+- [x] **TD-AUD-02 — Mutation authentication:** Import, collector, delete, signal persistence, storage, portfolio, journal, paper-trade and reset routes require API-key/Bearer authentication; the one-click loopback launcher uses an HttpOnly per-run session cookie instead of exposing its generated secret to browser JavaScript.
+- [x] **TD-AUD-03 — CORS hardening:** Wildcard CORS was removed; allowed origins are environment controlled.
+- [x] **TD-AUD-04 — Signal integrity:** Client records use a non-persistent preview endpoint; global signals can only be persisted from a server-stored snapshot.
+- [x] **TD-AUD-05 — Date/freshness safety:** Future dates are rejected and stale snapshots cannot persist actionable signals.
+- [x] **TD-AUD-06 — Snapshot consistency:** Active snapshot deletion transactionally selects a replacement or clears active metadata and signals.
+- [x] **TD-AUD-07 — Dataset activation lifecycle:** Partial, older and DEMO datasets cannot silently replace a stronger active dataset; they remain staged.
+- [x] **TD-AUD-08 — Truthful server reset:** Explicit backend reset scopes return deleted-row evidence; the UI waits for backend success before reporting completion.
+- [x] **TD-AUD-09 — Paper-accounting reconciliation:** One tested accounting engine now controls cash, equity, configurable fees, realised/unrealised P/L, partial/full exits, exact holding days, minimum RR and OHLC high/low SL/TP execution.
+- [x] **TD-AUD-10 — Performance/readiness:** Fast ISO-date parsing, request limits, active-snapshot SQL queries and separate `/live` and `/ready` health checks were added.
 
-### V2-001 — Documentation and roadmap baseline
-- V2 scope, audit findings, delivery sequence, and release gates documented.
+## Second Evidence-Backed Repair Checklist — 14 July 2026
 
-### V2-002 — Global latest-market-date signal gate
-- Outdated per-symbol data cannot appear as an active BUY.
-- Stale symbols are classified as non-actionable.
+Status legend: `[ ] NOT STARTED` · `[-] IN PROGRESS` · `[x] VERIFIED`
 
-### V2-003 — Stale-data circuit breaker
-- Backend, Dashboard, Signal Board, and Paper Trading block new trades when the active dataset is stale.
-- Existing trades can still be reviewed and closed.
+- [x] **TD-NEXT-01 — Staged snapshot signal-activation bypass:** `/api/signals/run` now persists signals only for the current active snapshot. Supplying a different or `STAGED` snapshot returns HTTP 409 and does not change active state.
+- [ ] **TD-NEXT-02 — Safe deletion replacement:** Active snapshot deletion must never auto-promote a staged/ineligible snapshot.
+- [ ] **TD-NEXT-03 — Server-authoritative signal storage:** Generic storage must not accept forged signal payloads.
+- [ ] **TD-NEXT-04 — Complete reset coverage:** Legacy paper-trade aliases must be cleared by reset.
+- [ ] **TD-NEXT-05 — Sensitive read authorization:** Portfolio, journal, trades and dataset reads require appropriate authorization for public deployment.
+- [ ] **TD-NEXT-06 — Browser secret removal:** No API secret may be compiled into or persisted by browser JavaScript.
+- [ ] **TD-NEXT-07 — Readiness-aware UI:** Frontend connection status must use backend readiness, not liveness alone.
+- [ ] **TD-NEXT-08 — Stale-preview trade gate:** Non-actionable stale preview signals must not open paper trades.
+- [ ] **TD-NEXT-09 — Truthful snapshot activation UI:** Snapshot selection must activate or load the exact selected server snapshot.
+- [ ] **TD-NEXT-10 — Collector completeness gate:** Incomplete collection results must remain staged and must not become active automatically.
 
-### V2-004 — Explainable Rule Score
-- Unsupported confidence and accuracy claims removed.
-- Signals use explainable rule-score components.
+### TD-NEXT-01 verification evidence
 
-### V2-005 — Security hardening
-- Environment-controlled CORS.
-- Bearer token and API-key support.
-- Mutation, import, collector, delete, storage, portfolio, journal, and paper-trade routes protected.
+- Regression test creates a valid active snapshot and a separate partial `STAGED` snapshot.
+- `POST /api/signals/run` with the staged snapshot ID returns **HTTP 409**.
+- The original active snapshot ID remains unchanged.
+- Backend security/consistency suite and signal-engine suite pass on the isolated branch.
 
-### V2-006 — Honest broker import
-- Simulated PDF parsing removed.
-- Real CSV and statement-text parsing with validation added.
+### Current verdict
 
-### V2-007 — Paper-trading accounting repair
-- Starting capital, cash, equity, realized P/L, unrealized P/L, partial exits, reset behavior, and holding duration reconciled.
+**Repair batch status: 10/10 verified within the local/private paper-trading scope.**  
+**Public multi-user production approval: NOT GRANTED.** The browser-visible API-key model must be replaced by server-side user authentication/RBAC before internet-facing deployment. The application remains a decision-support and paper-trading tool; it does not guarantee returns or execute broker orders.
 
-### V2-008 — Diagnostics and System Health
-- Backend, storage, SQLite, market freshness, collector, snapshot, signal, authentication, CORS, and deployment readiness visibility added.
+## Verification evidence
 
-### V2-009 — Daily automatic EOD refresh
-- Asia/Dhaka scheduler.
-- DSE Sunday–Thursday trading-day awareness.
-- Retry, failure reporting, last-success tracking, validation, and active-dataset preservation.
+The following checks passed against this package:
 
-### V2-010 — Multi-timeframe signal logic
-- Weekly candles and weekly EMA trend context.
-- Daily/weekly timeframe conflict prevents premium BUY classification.
+```bash
+npm run lint
+npm test
+python -m backend.tests.test_backend
+python -m backend.tests.test_signal_engine
+npm run build
+```
 
-### V2-011 — Position sizing and portfolio risk controls
-- Capital-based risk budget.
-- Stop-distance quantity.
-- Cash, exposure, concentration, and minimum-RR gates.
-- Shared calculation across Signal Board, Portfolio, and Paper Trading.
+Verified results:
 
-### V2-012 — Stronger Portfolio Analytics
-- Sector exposure.
-- Largest-position concentration.
-- Top-five exposure.
-- Comparable-snapshot drawdown.
-- Total open risk and risk-budget utilisation.
-- No-average-down warnings.
+- TypeScript compile: passed
+- Frontend logic and paper-accounting lifecycle tests: passed
+- Backend security/consistency tests: passed
+- Signal-engine dataset tests: passed — 84,970 rows, 460 symbols
+- Production frontend build: passed
+- npm audit: 0 known vulnerabilities
+- Loopback session integration: unknown origin rejected with HTTP 403; allowed local bootstrap returned HTTP 200; protected mutation succeeded using only the HttpOnly session cookie
+- Clean bundled bootstrap: 84,970 rows loaded in approximately **8.4 seconds** in the audit container; previous observed run exceeded 120 seconds
 
-## Remaining roadmap
+## Security configuration
 
-1. **V2-013 — Watchlist and Alerts**
-   - Favourite symbols
-   - Personal notes
-   - Target, support-zone, grade-change, and stale-signal alerts
-   - Dashboard notifications
+Copy `.env.example` to your environment and set a strong matching key:
 
-2. **V2-014 — Stronger Testing**
-   - Broader regression coverage
-   - Browser E2E coverage
-   - Failure-path and migration verification
+```env
+DSE_REQUIRE_AUTH=true
+DSE_API_KEY=replace-with-a-long-random-secret
+VITE_DSE_API_KEY=replace-with-the-same-secret
+DSE_ALLOWED_ORIGINS=http://127.0.0.1:8765,http://localhost:8765
+```
 
-3. **V2-015 — Deployment Readiness and Release Closure**
-   - Final environment validation
-   - Persistent storage verification
-   - Security and release audit
-   - Production release documentation
+The one-click launcher generates a temporary backend secret and exchanges it for an HttpOnly, SameSite=Strict loopback session cookie. `VITE_DSE_API_KEY` remains an optional manual/dev fallback and is compiled into the browser bundle when used, so it must not be treated as public multi-user authentication. Internet-facing deployment still requires real server-side user login, roles and secret rotation.
 
-## Verified bundled dataset
+## Health endpoints
 
-- File: `sample-data/dse_1y_ohlcv_master_app_ready.csv`
-- 84,970 validated OHLCV rows
-- 460 symbols
-- 239 sessions
-- Coverage: 2025-07-02 through 2026-06-30
+- `GET /api/health` and `GET /api/health/live` — process and diagnostic liveness
+- `GET /api/health/ready` — active snapshot, freshness, signal linkage, authentication and CORS readiness; returns HTTP 503 when unsafe
 
-The bundled dataset is historical and must be refreshed with a completed, validated DSE EOD dataset before acting on later-date signals.
+## Dataset activation rules
+
+- Imports are always saved as snapshots.
+- Older snapshots cannot replace a newer active snapshot.
+- When the active dataset has at least 20 symbols, a replacement needs at least 90% of its symbol coverage.
+- A DEMO snapshot cannot replace an active REAL/MANUAL snapshot.
+- Stale historical snapshots may be viewed, but persisted actionable signals are blocked.
 
 ## Architecture
 
 - Frontend: React + TypeScript + Vite
 - Backend: FastAPI + Python
-- Storage: SQLite
+- Storage: SQLite or Postgres/Supabase
 - Market data: validated DSE EOD OHLCV snapshots
-- Product role: decision support, portfolio analysis, risk review, and paper trading
+- Current backend version: `1.6.1-audit-repair`
 
-This application does not guarantee returns, execute broker orders, or provide verified investment advice.
-
-## Local Windows run
-
-1. Extract the verified release package.
-2. Double-click `START_DSE_APP.bat`.
-3. Keep the terminal window open.
-4. Open `http://127.0.0.1:8765` if the browser does not open automatically.
-
-## Verification commands
+## Local verification
 
 ```bash
-npm install
+cd audit_src/DSE_Swing_Trade_Signal_App_V1_6_0_Portfolio_Intelligence
+npm ci
 npm run lint
 npm test
-npm run test:backend
+python -m backend.tests.test_backend
+python -m backend.tests.test_signal_engine
 npm run build
 ```
 
-## Release rule
+## Paper-accounting verification
 
-A task is complete only when implementation, tests, safety gates, UI/backend agreement, documentation, and verification evidence all pass. V2 reaches 100% only after V2-015 final release closure passes.
+The UI and stored paper-trade ledger now use `PaperAccountingEngine.ts` for opening, marking, partial/full closing and account reconciliation. Tests cover entry/sell fees, fee allocation, cash release, wins/losses, exact holding days, gap stops, ambiguous same-candle SL/TP with conservative stop-first handling, targets and expiry.
+
+## Deployment boundary
+
+The ten audit repairs are verified for local/private paper simulation. Public deployment still requires server-side login sessions, user/role authorization, secret rotation, a complete DSE holiday calendar and an independent deployment review. This package must not be described as broker-execution or guaranteed-return software.
