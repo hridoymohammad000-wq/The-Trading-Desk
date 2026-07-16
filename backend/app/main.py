@@ -1,3 +1,5 @@
 from __future__ import annotations
 
-from audit_src.DSE_Swing_Trade_Signal_App_V1_6_0_Portfolio_Intelligence.backend.app.main import app
+from .safety import build_app
+
+app = build_app()
